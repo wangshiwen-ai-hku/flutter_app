@@ -1,0 +1,45 @@
+# Build outputs
+build/
+.dart_tool/
+*.dill
+*.cache
+
+# Flutter-specific
+**/Flutter.podspec
+**/GeneratedPluginRegistrant.swift
+**/GeneratedPluginRegistrant.h
+**/GeneratedPluginRegistrant.m
+**/generated_plugin_registrant.cc
+**/generated_plugins.cmake
+
+# IDE files
+.vscode/
+.idea/
+*.iml
+
+# OS files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Large assets that should be in Git LFS
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.mp4
+*.zip
+*.tar
+*.gz
+
+# Temporary files
+*.tmp
+*.temp
+
+GEMINI.md
+AGENTS.md
+*.png
