@@ -1,167 +1,179 @@
-import 'dart:typed_data';
+import 'dart:io';
 import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 
-class CanvasDrawingPage extends StatefulWidget {
-  const CanvasDrawingPage({super.key});
+// Represents a single path drawn by the user.
+class DrawingPath {
+  final Paint paint;
+  final Path path;
 
-  @override
-  State<CanvasDrawingPage> createState() => _CanvasDrawingPageState();
+  DrawingPath({required this.paint, required this.path});
 }
 
-class _CanvasDrawingPageState extends State<CanvasDrawingPage> {
-  final List<_Stroke> _strokes = [];
-  _Stroke? _currentStroke;
-  final GlobalKey _paintKey = GlobalKey();
+// Enum for different brush styles
+enum BrushType { pen, marker }
 
-  void _startStroke(Offset position) {
-    setState(() {
-      _currentStroke = _Stroke(points: [position]);
-      _strokes.add(_currentStroke!);
-    });
+// Controller to manage the state of the drawing canvas.
+class DrawingController extends ChangeNotifier {
+  final List<DrawingPath> _paths = [];
+  final List<DrawingPath> _undoStack = [];
+  ui.Image? backgroundImage;
+  BrushType _brushType = BrushType.pen;
+
+  Paint _currentPaint = Paint()
+    ..color = Colors.black
+    ..strokeWidth = 3.0
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round;
+
+  List<DrawingPath> get paths => _paths;
+  Paint get currentPaint => _currentPaint;
+  BrushType get brushType => _brushType;
+  bool get canUndo => _paths.isNotEmpty;
+  bool get canRedo => _undoStack.isNotEmpty;
+
+  void startPath(Offset startPoint) {
+    final path = Path()..moveTo(startPoint.dx, startPoint.dy);
+    _paths.add(DrawingPath(paint: _currentPaint, path: path));
+    _undoStack.clear();
+    notifyListeners();
   }
 
-  void _appendPoint(Offset position) {
-    setState(() {
-      _currentStroke?.points.add(position);
-    });
+  void appendPoint(Offset point) {
+    if (_paths.isEmpty) return;
+    _paths.last.path.lineTo(point.dx, point.dy);
+    notifyListeners();
   }
 
-  void _endStroke() {
-    setState(() {
-      _currentStroke = null;
-    });
+  void endPath() {
+    // No action needed for now, but can be used for path optimization later.
   }
 
-  void _clearCanvas() {
-    setState(() {
-      _strokes.clear();
-    });
+  void undo() {
+    if (!canUndo) return;
+    _undoStack.add(_paths.removeLast());
+    notifyListeners();
   }
 
-  Future<void> _finishDrawing() async {
-    try {
-      final boundary = _paintKey.currentContext?.findRenderObject()
-          as RenderRepaintBoundary?;
-      if (boundary == null) {
-        if (mounted) Navigator.pop(context, null);
-        return;
-      }
-      final ui.Image image = await boundary.toImage(pixelRatio: 2.0);
-      final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-      if (byteData == null) {
-        if (mounted) Navigator.pop(context, null);
-        return;
-      }
-      final Uint8List pngBytes = byteData.buffer.asUint8List();
-      if (mounted) {
-        Navigator.pop(context, pngBytes);
-      }
-    } catch (_) {
-      if (mounted) {
-        Navigator.pop(context, null);
-      }
-    }
+  void redo() {
+    if (!canRedo) return;
+    _paths.add(_undoStack.removeLast());
+    notifyListeners();
   }
+
+  void clear() {
+    _paths.clear();
+    _undoStack.clear();
+    notifyListeners();
+  }
+
+  Future<void> setBackgroundImage(File imageFile) async {
+    final data = await imageFile.readAsBytes();
+    final codec = await ui.instantiateImageCodec(data);
+    final frame = await codec.getNextFrame();
+    backgroundImage = frame.image;
+    // Also clear existing paths when a new background is set
+    clear();
+    notifyListeners();
+  }
+
+  void setPaint(Paint newPaint) {
+    _currentPaint = newPaint;
+  }
+
+  void setColor(Color color) {
+    _currentPaint = Paint()
+      ..color = color
+      ..strokeWidth = _currentPaint.strokeWidth
+      ..style = PaintingStyle.stroke
+      ..strokeCap = _currentPaint.strokeCap;
+    _updatePaintForBrush(); // Re-apply brush settings with new color
+    notifyListeners();
+  }
+
+  void setBrushType(BrushType type) {
+    _brushType = type;
+    _updatePaintForBrush();
+    notifyListeners();
+  }
+
+  void _updatePaintForBrush() {
+    _currentPaint.strokeWidth = _brushType == BrushType.pen ? 3.0 : 12.0;
+  }
+}
+
+// The main canvas widget where drawing happens.
+class DrawingCanvas extends StatelessWidget {
+  final DrawingController controller;
+
+  const DrawingCanvas({super.key, required this.controller});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('手绘自画像'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
-            tooltip: '清空',
-            onPressed: _clearCanvas,
-          ),
-          IconButton(
-            icon: const Icon(Icons.check),
-            tooltip: '完成',
-            onPressed: _finishDrawing,
-          ),
-        ],
-      ),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: AspectRatio(
-          aspectRatio: 3 / 4,
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              color: const Color(0xFFFDF7F2),
-              borderRadius: BorderRadius.circular(24),
-              border: Border.all(color: const Color(0xFF5F4040), width: 1.6),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x22000000),
-                  blurRadius: 18,
-                  offset: Offset(0, 10),
-                ),
-              ],
-            ),
-            child: GestureDetector(
-              onPanStart: (details) =>
-                  _startStroke(_clampToBounds(details.localPosition)),
-              onPanUpdate: (details) =>
-                  _appendPoint(_clampToBounds(details.localPosition)),
-              onPanEnd: (_) => _endStroke(),
-              child: RepaintBoundary(
-                key: _paintKey,
-                child: CustomPaint(
-                  painter: _CanvasPainter(strokes: _strokes),
-                  isComplex: true,
-                  willChange: true,
-                ),
-              ),
-            ),
-          ),
-        ),
+    return GestureDetector(
+      onPanStart: (details) => controller.startPath(details.localPosition),
+      onPanUpdate: (details) => controller.appendPoint(details.localPosition),
+      onPanEnd: (details) => controller.endPath(),
+      child: CustomPaint(
+        painter: _CanvasPainter(controller: controller),
+        size: Size.infinite,
       ),
     );
   }
-
-  Offset _clampToBounds(Offset raw) {
-    return Offset(
-      raw.dx.clamp(0.0, double.infinity),
-      raw.dy.clamp(0.0, double.infinity),
-    );
-  }
-}
-
-class _Stroke {
-  _Stroke({required this.points});
-
-  final List<Offset> points;
 }
 
 class _CanvasPainter extends CustomPainter {
-  const _CanvasPainter({required this.strokes});
+  final DrawingController controller;
 
-  final List<_Stroke> strokes;
+  _CanvasPainter({required this.controller}) : super(repaint: controller);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFB82020)
-      ..strokeWidth = 3.2
-      ..strokeCap = StrokeCap.round
-      ..style = PaintingStyle.stroke;
+    // Draw background image if it exists
+    if (controller.backgroundImage != null) {
+      paintImage(
+        canvas: canvas,
+        rect: Rect.fromLTWH(0, 0, size.width, size.height),
+        image: controller.backgroundImage!,
+        fit: BoxFit.cover,
+      );
+    }
 
-    for (final stroke in strokes) {
-      final points = stroke.points;
-      for (int i = 0; i < points.length - 1; i++) {
-        canvas.drawLine(points[i], points[i + 1], paint);
-      }
-      if (points.length == 1) {
-        canvas.drawPoints(ui.PointMode.points, points, paint);
-      }
+    // Draw paths
+    for (final drawingPath in controller.paths) {
+      canvas.drawPath(drawingPath.path, drawingPath.paint);
     }
   }
 
   @override
   bool shouldRepaint(covariant _CanvasPainter oldDelegate) {
-    return oldDelegate.strokes != strokes;
+    return true;
+  }
+}
+
+// A toolbar for drawing actions and options.
+class DrawingToolbar extends AnimatedWidget {
+  final DrawingController controller;
+
+  const DrawingToolbar({super.key, required this.controller}) : super(listenable: controller);
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+      children: [
+        IconButton(
+          icon: const Icon(Icons.undo),
+          onPressed: controller.canUndo ? controller.undo : null,
+          tooltip: 'Undo',
+        ),
+        IconButton(
+          icon: const Icon(Icons.redo),
+          onPressed: controller.canRedo ? controller.redo : null,
+          tooltip: 'Redo',
+        ),
+        // Add color pickers and stroke width selectors here
+      ],
+    );
   }
 }
