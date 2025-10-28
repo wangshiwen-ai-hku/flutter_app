@@ -4,9 +4,11 @@ import 'dart:ui' as ui;
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
 import 'package:flutter_app/pages/create_post_page.dart';
 import 'package:flutter_app/pages/post_detail_page.dart';
+import 'package:flutter_app/widgets/bottom_nav_bar_visibility_notification.dart';
 import 'package:video_player/video_player.dart';
 
 enum MediaType { image, video }
@@ -38,6 +40,52 @@ class Post {
     this.isFavorited = false,
     this.isPublic = true, // Default to public
   });
+
+  factory Post.fromJson(Map<String, dynamic> json) => Post(
+        author: json["author"],
+        authorImageUrl: json["authorImageUrl"],
+        content: json["content"],
+        mediaUrl: json["mediaUrl"],
+        mediaType: mediaTypeFromJson(json["mediaType"]),
+        likes: json["likes"],
+        comments: json["comments"],
+        crossAxisCellCount: json["crossAxisCellCount"],
+        mainAxisCellCount: json["mainAxisCellCount"].toDouble(),
+        isFavorited: json["isFavorited"],
+        isPublic: json["isPublic"],
+      );
+
+  Map<String, dynamic> toJson() => {
+        "author": author,
+        "authorImageUrl": authorImageUrl,
+        "content": content,
+        "mediaUrl": mediaUrl,
+        "mediaType": mediaTypeToJson(mediaType),
+        "likes": likes,
+        "comments": comments,
+        "crossAxisCellCount": crossAxisCellCount,
+        "mainAxisCellCount": mainAxisCellCount,
+        "isFavorited": isFavorited,
+        "isPublic": isPublic,
+      };
+}
+
+MediaType? mediaTypeFromJson(String? type) {
+  if (type == 'image') {
+    return MediaType.image;
+  } else if (type == 'video') {
+    return MediaType.video;
+  }
+  return null;
+}
+
+String? mediaTypeToJson(MediaType? type) {
+  if (type == MediaType.image) {
+    return 'image';
+  } else if (type == MediaType.video) {
+    return 'video';
+  }
+  return null;
 }
 
 class PostPage extends StatefulWidget {
@@ -49,6 +97,8 @@ class PostPage extends StatefulWidget {
 
 class _PostPageState extends State<PostPage> {
   bool _isMember = false; // Simulate membership status
+  late final ScrollController _scrollController;
+  bool _isNavBarVisible = true;
 
   // Mock data - now a mutable list
   final List<Post> posts = [
@@ -59,6 +109,39 @@ class _PostPageState extends State<PostPage> {
     Post(author: 'Sara', authorImageUrl: 'https://i.pravatar.cc/150?u=sara', content: 'Collected the sound of rain on a tin roof. It tells a story.', likes: 45, comments: 7, mainAxisCellCount: 1.2, isFavorited: true),
     Post(author: 'Ryu', authorImageUrl: 'https://i.pravatar.cc/150?u=ryu', content: 'I followed a cat for 3 blocks. It showed me a world I never knew existed.', mediaUrl: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?q=80&w=2043&auto=format&fit=crop', mediaType: MediaType.image, likes: 102, comments: 23, mainAxisCellCount: 1.6),
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    _scrollController = ScrollController();
+    _scrollController.addListener(_scrollListener);
+  }
+
+  @override
+  void dispose() {
+    _scrollController.removeListener(_scrollListener);
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  void _scrollListener() {
+    if (_scrollController.position.userScrollDirection == ScrollDirection.reverse) {
+      if (_isNavBarVisible) {
+        setState(() {
+          _isNavBarVisible = false;
+          BottomNavBarVisibilityNotification(false).dispatch(context);
+        });
+      }
+    }
+    if (_scrollController.position.userScrollDirection == ScrollDirection.forward) {
+      if (!_isNavBarVisible) {
+        setState(() {
+          _isNavBarVisible = true;
+          BottomNavBarVisibilityNotification(true).dispatch(context);
+        });
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -84,6 +167,7 @@ class _PostPageState extends State<PostPage> {
         ],
       ),
       body: SingleChildScrollView(
+        controller: _scrollController,
         padding: const EdgeInsets.all(8.0),
         child: StaggeredGrid.count(
           crossAxisCount: 2,

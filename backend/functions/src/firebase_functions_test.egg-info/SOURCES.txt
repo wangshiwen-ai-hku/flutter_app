@@ -1,0 +1,7 @@
+pyproject.toml
+src/firebase_functions_test.egg-info/PKG-INFO
+src/firebase_functions_test.egg-info/SOURCES.txt
+src/firebase_functions_test.egg-info/dependency_links.txt
+src/firebase_functions_test.egg-info/entry_points.txt
+src/firebase_functions_test.egg-info/requires.txt
+src/firebase_functions_test.egg-info/top_level.txt

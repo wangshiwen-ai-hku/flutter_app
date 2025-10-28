@@ -1,1 +1,18 @@
-{"flutter":{"platforms":{"dart":{"lib/firebase_options.dart":{"projectId":"studio-291983403-af613","configurations":{"web":"1:170748311325:web:70868e38678341165bd3f4"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "studio-291983403-af613",
+          "configurations": {
+            "web": "1:170748311325:web:70868e38678341165bd3f4"
+          }
+        }
+      }
+    }
+  },
+  "functions": {
+    "source": "backend/functions",
+    "runtime": "nodejs18"
+  }
+}

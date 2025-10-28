@@ -4,6 +4,9 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_app/models/match_profile.dart';
 import 'package:flutter_app/widgets/bottom_nav_bar_visibility_notification.dart';
 
+import 'package:flutter_app/data/conversations_provider.dart';
+import 'package:flutter_app/models/conversation.dart';
+
 class ChatPage extends StatefulWidget {
   final MatchProfile profile;
 
@@ -22,13 +25,14 @@ class _ChatPageState extends State<ChatPage> {
     '如果有空，一起边走边录城市的呼吸吧。',
   ];
 
-  final List<_ChatMessage> _messages = [];
+  final List<ChatMessage> _messages = [];
   final GlobalKey<AnimatedListState> _listKey = GlobalKey<AnimatedListState>();
   late final ScrollController _scrollController;
   late final TextEditingController _inputController;
   late final FocusNode _inputFocusNode;
   bool _canSend = false;
   bool _isNavBarVisible = true;
+  bool _isFavorited = false; // Local state for the favorite button
 
   @override
   void initState() {
@@ -38,6 +42,10 @@ class _ChatPageState extends State<ChatPage> {
     _inputController = TextEditingController();
     _inputController.addListener(_handleInputChanged);
     _inputFocusNode = FocusNode();
+
+    // Set initial favorite state from the provider
+    final existingConversation = conversationsProvider.allConversations.firstWhere((c) => c.id == widget.profile.id, orElse: () => Conversation(id: '', partner: widget.profile));
+    _isFavorited = existingConversation.isFavorited;
 
     _loadInitialMessages();
   }
@@ -62,16 +70,17 @@ class _ChatPageState extends State<ChatPage> {
   }
 
   void _loadInitialMessages() {
+    // This can be adapted to load messages from the provider if they should persist
     final initialMessages = [
-      _ChatMessage(author: widget.profile.name, text: '嗨，我刚看了你的梦境日志，太奇妙了！'),
-      const _ChatMessage(author: '你', text: '谢谢～最近试着用声音记录情绪，你也会吗？'),
-      _ChatMessage(author: widget.profile.name, text: '会的，我喜欢用黑胶噪点铺底。'),
-      const _ChatMessage(author: '你', text: '那我们下次交换一段声音日记吧！'),
+      ChatMessage(author: widget.profile.name, text: '嗨，我刚看了你的梦境日志，太奇妙了！', timestamp: DateTime.now()),
+      ChatMessage(author: '你', text: '谢谢～最近试着用声音记录情绪，你也会吗？', timestamp: DateTime.now()),
+      ChatMessage(author: widget.profile.name, text: '会的，我喜欢用黑胶噪点铺底。', timestamp: DateTime.now()),
+      ChatMessage(author: '你', text: '那我们下次交换一段声音日记吧！', timestamp: DateTime.now()),
     ];
 
     Future.delayed(const Duration(milliseconds: 100), () {
       for (var i = 0; i < initialMessages.length; i++) {
-        _addMessage(initialMessages[i], scheduleReply: false);
+        _addMessage(initialMessages[i], scheduleReply: false, notifyProvider: false);
         Future.delayed(Duration(milliseconds: 150 * (i + 1)));
       }
     });
@@ -87,22 +96,29 @@ class _ChatPageState extends State<ChatPage> {
   void _sendMessage() {
     final raw = _inputController.text.trim();
     if (raw.isEmpty) return;
-    
-    _addMessage( _ChatMessage(author: '你', text: raw));
+
+    final message = ChatMessage(author: '你', text: raw, timestamp: DateTime.now());
+    _addMessage(message);
     _inputController.clear();
     _inputFocusNode.requestFocus();
   }
 
-  void _addMessage(_ChatMessage message, {bool scheduleReply = true}) {
+  void _addMessage(ChatMessage message, {bool scheduleReply = true, bool notifyProvider = true}) {
     _messages.add(message);
     _listKey.currentState?.insertItem(_messages.length - 1, duration: const Duration(milliseconds: 400));
     _scrollToBottom();
+
+    // Notify the provider that a new message has been added
+    if (notifyProvider) {
+      conversationsProvider.addMessage(widget.profile, message);
+    }
 
     if (message.author == '你' && scheduleReply) {
       Future.delayed(const Duration(milliseconds: 1200), () {
         if (!mounted) return;
         final replyText = _replyPool[math.Random().nextInt(_replyPool.length)];
-        _addMessage(_ChatMessage(author: widget.profile.name, text: replyText), scheduleReply: false);
+        final replyMessage = ChatMessage(author: widget.profile.name, text: replyText, timestamp: DateTime.now());
+        _addMessage(replyMessage, scheduleReply: false);
       });
     }
   }
@@ -133,6 +149,28 @@ class _ChatPageState extends State<ChatPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.profile.name),
+        actions: [
+          IconButton(
+            icon: Icon(
+              _isFavorited ? Icons.star : Icons.star_border,
+              color: _isFavorited ? Colors.amber : null,
+            ),
+            onPressed: () {
+              // Update the provider and the local state
+              conversationsProvider.toggleFavorite(widget.profile.id);
+              setState(() {
+                _isFavorited = !_isFavorited;
+              });
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(_isFavorited ? 'Conversation favorited.' : 'Conversation unfavorited.'),
+                  duration: const Duration(seconds: 1),
+                ),
+              );
+            },
+            tooltip: 'Favorite Chat',
+          ),
+        ],
       ),
       body: SafeArea(
         child: Padding(
@@ -169,7 +207,7 @@ class _ChatPageState extends State<ChatPage> {
 
 class AnimatedMessage extends StatelessWidget {
   final Animation<double> animation;
-  final _ChatMessage message;
+  final ChatMessage message;
   final Color accent;
 
   const AnimatedMessage({super.key, required this.animation, required this.message, required this.accent});
@@ -313,9 +351,4 @@ class _ChatInputBar extends StatelessWidget {
   }
 }
 
-class _ChatMessage {
-  final String author;
-  final String text;
 
-  const _ChatMessage({required this.author, required this.text});
-}

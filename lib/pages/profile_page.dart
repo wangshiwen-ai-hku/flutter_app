@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:flutter_app/data/my_posts.dart';
 import 'package:flutter_app/pages/post_page.dart'; // For PostCard and Post model
 import 'package:flutter_app/main.dart'; // For themeNotifier
+import 'package:flutter_app/pages/yearly_report_page.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -30,6 +31,15 @@ class _ProfilePageState extends State<ProfilePage> {
       appBar: AppBar(
         title: Text('My Sanctuary', style: GoogleFonts.cormorantGaramond(fontWeight: FontWeight.w600)),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.timeline_outlined),
+            onPressed: () {
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const YearlyReportPage(),
+              ));
+            },
+            tooltip: 'View Yearly Report',
+          ),
           IconButton(
             icon: const Icon(Icons.refresh),
             onPressed: _refresh,

@@ -1,0 +1,3 @@
+# Python dependencies for testing LLM integration
+# Install with: uv pip install -r requirements.txt
+google-generativeai>=0.3.0

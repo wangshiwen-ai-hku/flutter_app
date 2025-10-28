@@ -1,12 +1,33 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:flutter_app/firebase_options.dart';
 import 'package:flutter_app/pages/home_page.dart';
+import 'package:flutter_app/services/service_locator.dart'; // Import the service locator
 
 // Global notifier for theme changes
 final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 
-void main() {
+// 启用LLM模式
+
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialize Firebase
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  await setupLocator(); // Set up the service locator
+
+  // Enable LLM in debug mode if API key is available
+  const enableLLM = bool.fromEnvironment('ENABLE_DEBUG_LLM', defaultValue: false);
+  if (enableLLM) {
+    enableLLMInDebug();
+  }
+
   runApp(const MyApp());
 }
 

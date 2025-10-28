@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "firebase-functions-test"
+version = "0.1.0"
+description = "Test utilities for Firebase Cloud Functions LLM integration"
+authors = [
+    {name = "Psycho App Team"}
+]
+dependencies = [
+    "google-generativeai>=0.3.0"
+]
+
+[tool.uv]
+# uv configuration
+dev-dependencies = []
+
+[project.scripts]
+test-llm = "test_llm:main"

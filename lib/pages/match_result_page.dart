@@ -1,14 +1,14 @@
 import 'dart:math' as math;
-import 'dart:ui' as ui;
-
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:vector_math/vector_math_64.dart' as vector;
 import 'package:visibility_detector/visibility_detector.dart';
 
-import '../models/match_profile.dart';
-import '../physics/metaball_simulation.dart';
-import 'chat_page.dart';
+import 'package:flutter_app/models/match_analysis.dart';
+import 'package:flutter_app/physics/metaball_simulation.dart';
+import 'package:flutter_app/pages/chat_history_page.dart';
+import 'package:flutter_app/pages/match_analysis_page.dart';
+import 'package:flutter_app/services/api_service.dart';
+import 'package:flutter_app/services/service_locator.dart';
 
 class MatchResultPage extends StatefulWidget {
   const MatchResultPage({super.key});
@@ -18,60 +18,78 @@ class MatchResultPage extends StatefulWidget {
 }
 
 class _MatchResultPageState extends State<MatchResultPage> {
-  final List<MatchProfile> _profiles = const [
-    MatchProfile(id: 'yori', name: 'Yori', tagline: '感性插画师', accent: Color(0xFFCB5151)),
-    MatchProfile(id: 'miko', name: 'Miko', tagline: '午夜电台主持', accent: Color(0xFFE4B974)),
-    MatchProfile(id: 'noa', name: 'Noa', tagline: '剧本杀写手', accent: Color(0xFF6C8D8E)),
-    MatchProfile(id: 'leon', name: 'Leon', tagline: '旅行摄影师', accent: Color(0xFF9E7F66)),
-    MatchProfile(id: 'sara', name: 'Sara', tagline: '声音收藏者', accent: Color(0xFF55616A)),
-    MatchProfile(id: 'ryu', name: 'Ryu', tagline: '城市观察员', accent: Color(0xFFB7B0AA)),
-  ];
+  Future<List<MatchAnalysis>>? _matchesFuture;
+  String? _selectedAnalysisId;
 
-  String? _selectedProfileId;
+  @override
+  void initState() {
+    super.initState();
+    _matchesFuture = locator<ApiService>().getMatches('current_user_id');
+  }
 
-  void _handleSelect(MatchProfile profile) {
-    setState(() => _selectedProfileId = profile.id);
+  void _handleSelect(MatchAnalysis analysis) {
+    setState(() => _selectedAnalysisId = analysis.id);
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => ChatPage(profile: profile)),
+      MaterialPageRoute(builder: (_) => MatchAnalysisPage(analysis: analysis)),
     ).then((_) {
       if (!mounted) return;
-      setState(() => _selectedProfileId = null);
+      setState(() => _selectedAnalysisId = null);
     });
+  }
+
+  void _navigateToChatHistory() {
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => const ChatHistoryPage(),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFE2E0DE),
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.history),
+            onPressed: _navigateToChatHistory,
+            tooltip: 'Chat History',
+          ),
+        ],
+      ),
       body: SafeArea(
-        child: LayoutBuilder(
-          builder: (context, constraints) {
-            final maxWidth = math.min(constraints.maxWidth, 620).toDouble();
-            final gutter = math.min(32, maxWidth * 0.06).toDouble();
-            return Center(
-              child: Container(
-                constraints: BoxConstraints(maxWidth: maxWidth),
-                padding: EdgeInsets.symmetric(
-                  horizontal: math.min(28, maxWidth * 0.08).toDouble(),
-                  vertical: 28,
-                ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(right: gutter),
-                        child: _SelectionColumn(
-                          profiles: _profiles,
-                          selectedProfileId: _selectedProfileId,
-                          onProfileTap: _handleSelect,
-                        ),
-                      ),
+        child: FutureBuilder<List<MatchAnalysis>>(
+          future: _matchesFuture,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (snapshot.hasError) {
+              return Center(child: Text('Error: ${snapshot.error}'));
+            } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return const Center(child: Text('No matches found.'));
+            }
+
+            final matches = snapshot.data!;
+            return LayoutBuilder(
+              builder: (context, constraints) {
+                final maxWidth = math.min(constraints.maxWidth, 620).toDouble();
+                return Center(
+                  child: Container(
+                    constraints: BoxConstraints(maxWidth: maxWidth),
+                    padding: EdgeInsets.symmetric(
+                      horizontal: math.min(28, maxWidth * 0.08).toDouble(),
+                      vertical: 28,
                     ),
-                  ],
-                ),
-              ),
+                    child: _SelectionColumn(
+                      matches: matches,
+                      selectedAnalysisId: _selectedAnalysisId,
+                      onAnalysisTap: _handleSelect,
+                    ),
+                  ),
+                );
+              },
             );
           },
         ),
@@ -81,14 +99,14 @@ class _MatchResultPageState extends State<MatchResultPage> {
 }
 
 class _SelectionColumn extends StatelessWidget {
-  final List<MatchProfile> profiles;
-  final String? selectedProfileId;
-  final ValueChanged<MatchProfile> onProfileTap;
+  final List<MatchAnalysis> matches;
+  final String? selectedAnalysisId;
+  final ValueChanged<MatchAnalysis> onAnalysisTap;
 
   const _SelectionColumn({
-    required this.profiles,
-    required this.selectedProfileId,
-    required this.onProfileTap,
+    required this.matches,
+    required this.selectedAnalysisId,
+    required this.onAnalysisTap,
   });
 
   @override
@@ -102,16 +120,16 @@ class _SelectionColumn extends StatelessWidget {
       children: [
         Text('Match With People!', style: titleStyle),
         const SizedBox(height: 4),
-        Text('And select to chat!', style: subtitleStyle),
+        Text('And see your analysis!', style: subtitleStyle),
         const SizedBox(height: 32),
         Expanded(
           child: Align(
             alignment: Alignment.centerLeft,
-            child: ClipRect( // Prevents bubbles from drawing outside their bounds
+            child: ClipRect(
               child: BubbleCluster(
-                profiles: profiles,
-                selectedProfileId: selectedProfileId,
-                onProfileTap: onProfileTap,
+                matches: matches,
+                selectedAnalysisId: selectedAnalysisId,
+                onAnalysisTap: onAnalysisTap,
               ),
             ),
           ),
@@ -122,15 +140,15 @@ class _SelectionColumn extends StatelessWidget {
 }
 
 class BubbleCluster extends StatefulWidget {
-  final List<MatchProfile> profiles;
-  final String? selectedProfileId;
-  final ValueChanged<MatchProfile> onProfileTap;
+  final List<MatchAnalysis> matches;
+  final String? selectedAnalysisId;
+  final ValueChanged<MatchAnalysis> onAnalysisTap;
 
   const BubbleCluster({
     super.key,
-    required this.profiles,
-    this.selectedProfileId,
-    required this.onProfileTap,
+    required this.matches,
+    this.selectedAnalysisId,
+    required this.onAnalysisTap,
   });
 
   @override
@@ -141,7 +159,8 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
   late final AnimationController _controller;
   late final MetaballSimulation _simulation;
   late final List<Metaball> _metaballs;
-  Size _clusterSize = const Size(300, 300); // Default size
+  Size _clusterSize = const Size(300, 300);
+  Metaball? _draggedBall;
 
   @override
   void initState() {
@@ -154,10 +173,11 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
         }
       });
 
-    final random = math.Random();
-    _metaballs = widget.profiles.map((p) {
-      final radius = 35 + random.nextDouble() * 25;
-      return Metaball(p, radius: radius);
+    _metaballs = widget.matches.map((analysis) {
+      const minRadius = 30.0;
+      const maxRadius = 60.0;
+      final radius = minRadius + (maxRadius - minRadius) * analysis.aiScore;
+      return Metaball(analysis, radius: radius);
     }).toList();
 
     _simulation = MetaballSimulation(metaballs: _metaballs, size: _clusterSize);
@@ -172,18 +192,58 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
   void _resetSimulation() {
     if (!mounted) return;
     final random = math.Random();
-
     for (final ball in _metaballs) {
-      // Random position within the bounds
       ball.position = vector.Vector2(
         random.nextDouble() * _clusterSize.width,
         random.nextDouble() * _clusterSize.height,
       );
-      // Random velocity (momentum)
       ball.velocity = vector.Vector2(
-        (random.nextDouble() - 0.5) * 2, // Random value between -1 and 1
+        (random.nextDouble() - 0.5) * 2,
         (random.nextDouble() - 0.5) * 2,
       );
+    }
+  }
+
+  Metaball? _findTappedBall(Offset localPosition) {
+    final tapPosition = vector.Vector2(localPosition.dx, localPosition.dy);
+    for (final ball in _metaballs.reversed) {
+      if (ball.position.distanceTo(tapPosition) < ball.radius * ball.scale) {
+        return ball;
+      }
+    }
+    return null;
+  }
+
+  void _onPanStart(DragStartDetails details) {
+    final tappedBall = _findTappedBall(details.localPosition);
+    if (tappedBall != null) {
+      setState(() {
+        _draggedBall = tappedBall;
+        _draggedBall!.isBeingDragged = true;
+        _draggedBall!.scale = 1.2;
+      });
+    }
+  }
+
+  void _onPanUpdate(DragUpdateDetails details) {
+    if (_draggedBall != null) {
+      setState(() {
+        _draggedBall!.position = vector.Vector2(details.localPosition.dx, details.localPosition.dy);
+      });
+    }
+  }
+
+  void _onPanEnd(DragEndDetails details) {
+    if (_draggedBall != null) {
+      setState(() {
+        _draggedBall!.isBeingDragged = false;
+        _draggedBall!.velocity = vector.Vector2(
+          details.velocity.pixelsPerSecond.dx * 0.01,
+          details.velocity.pixelsPerSecond.dy * 0.01,
+        );
+        _draggedBall!.scale = 1.0;
+        _draggedBall = null;
+      });
     }
   }
 
@@ -210,21 +270,17 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
         _simulation.size = constraints.biggest;
         return GestureDetector(
           onTapDown: (details) {
-            final tapPosition = vector.Vector2(details.localPosition.dx, details.localPosition.dy);
-            Metaball? tappedBall;
-            for (final ball in _metaballs.reversed) {
-              if (ball.position.distanceTo(tapPosition) < ball.radius) {
-                tappedBall = ball;
-                break;
-              }
-            }
-            if (tappedBall != null) widget.onProfileTap(tappedBall.profile);
+            final tappedBall = _findTappedBall(details.localPosition);
+            if (tappedBall != null) widget.onAnalysisTap(tappedBall.analysis);
           },
+          onPanStart: _onPanStart,
+          onPanUpdate: _onPanUpdate,
+          onPanEnd: _onPanEnd,
           child: CustomPaint(
             size: Size.infinite,
             painter: _BubblePainter(
               metaballs: _metaballs,
-              selectedProfileId: widget.selectedProfileId,
+              selectedAnalysisId: widget.selectedAnalysisId,
               textTheme: Theme.of(context).textTheme,
             ),
           ),
@@ -236,53 +292,58 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
 
 class _BubblePainter extends CustomPainter {
   final List<Metaball> metaballs;
-  final String? selectedProfileId;
+  final String? selectedAnalysisId;
   final TextTheme textTheme;
 
   _BubblePainter({
     required this.metaballs,
-    this.selectedProfileId,
+    this.selectedAnalysisId,
     required this.textTheme,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    final colors = [Colors.red, Colors.blue, Colors.green, Colors.orange, Colors.purple, Colors.teal];
+    int colorIndex = 0;
+
     for (final ball in metaballs) {
-      final isSelected = ball.profile.id == selectedProfileId;
+      final isSelected = ball.analysis.id == selectedAnalysisId;
       final center = Offset(ball.position.x, ball.position.y);
+      final scaledRadius = ball.radius * ball.scale;
 
-      // Draw the main bubble with a blur effect
+      // Assign a color based on the user ID to keep it consistent
+      final color = colors[ball.analysis.userB.uid.hashCode % colors.length];
+
       final paint = Paint()
-        ..color = isSelected ? ball.profile.accent : ball.profile.accent.withOpacity(0.8)
+        ..color = isSelected ? color : color.withOpacity(0.8)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
-      canvas.drawCircle(center, ball.radius, paint);
+      canvas.drawCircle(center, scaledRadius, paint);
 
-      // Draw the text content
       final nameStyle = textTheme.titleLarge?.copyWith(
-          fontSize: ball.radius * 0.3,
+          fontSize: scaledRadius * 0.3,
           fontWeight: FontWeight.w600,
           color: isSelected ? Colors.white : Colors.white.withOpacity(0.9));
       final taglineStyle = textTheme.bodyMedium?.copyWith(
-          fontSize: ball.radius * 0.15,
+          fontSize: scaledRadius * 0.15,
           color: isSelected
               ? Colors.white.withOpacity(0.85)
               : Colors.white.withOpacity(0.7));
 
       final textSpan = TextSpan(
         children: [
-          TextSpan(text: '${ball.profile.name}\n', style: nameStyle),
-          TextSpan(text: ball.profile.tagline, style: taglineStyle),
+          TextSpan(text: '${ball.analysis.userB.username}\n', style: nameStyle),
+          TextSpan(text: ball.analysis.userB.freeText, style: taglineStyle, ),
         ],
       );
 
-      final textPainter = TextPainter(
+      final         textPainter = TextPainter(
           text: textSpan,
           textAlign: TextAlign.center,
-          textDirection: TextDirection.ltr)
-        ..layout(maxWidth: ball.radius * 1.6);
+          textDirection: TextDirection.ltr,
+          maxLines: 2,
+        )..layout(maxWidth: scaledRadius * 1.6);
 
-      final textOffset = Offset(center.dx - textPainter.width / 2,
-          center.dy - textPainter.height / 2);
+      final textOffset = Offset(center.dx - textPainter.width / 2, center.dy - textPainter.height / 2);
       textPainter.paint(canvas, textOffset);
     }
   }

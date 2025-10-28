@@ -7,9 +7,10 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-import '../widgets/change_tab_notification.dart';
 import '../widgets/up_down_button.dart';
+import '../services/service_locator.dart';
 import 'canvas_drawing_page.dart';
+import 'match_result_page.dart';
 
 class FeatureSelectionPage extends StatefulWidget {
   const FeatureSelectionPage({super.key});
@@ -30,6 +31,9 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
   final _drawingController = DrawingController();
   final GlobalKey _canvasKey = GlobalKey();
 
+  // Track current service mode for UI display
+  bool _isUsingFirebase = false;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +44,9 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
     _matchButtonScaleAnimation = Tween<double>(begin: 0.95, end: 1.05).animate(
       CurvedAnimation(parent: _matchButtonAnimationController, curve: Curves.easeInOut),
     );
+
+    // Initialize service mode display
+    _isUsingFirebase = useFirebaseInDebug;
   }
 
   @override
@@ -51,7 +58,9 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
   }
 
   void _startMatching() {
-    ChangeTabNotification(1).dispatch(context);
+    Navigator.of(context).push(MaterialPageRoute(
+      builder: (context) => const MatchResultPage(),
+    ));
   }
 
   void _openCanvas() {
@@ -97,6 +106,58 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
     const shareTextColor = Color(0xFF6B645E);
 
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Select Your Traits'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        actions: [
+          // Developer option to switch between fake and Firebase services
+          PopupMenuButton<String>(
+            onSelected: (value) {
+              switch (value) {
+                case 'switch_to_fake':
+                  switchToFakeService();
+                  setState(() => _isUsingFirebase = false);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('🔄 Switched to Fake Service')),
+                  );
+                  break;
+                case 'switch_to_firebase':
+                  switchToFirebaseService();
+                  setState(() => _isUsingFirebase = true);
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('🔥 Switched to Firebase Service')),
+                  );
+                  break;
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'switch_to_fake',
+                child: Row(
+                  children: [
+                    Text('🎭'),
+                    SizedBox(width: 8),
+                    Text('Use Fake Service'),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
+                value: 'switch_to_firebase',
+                child: Row(
+                  children: [
+                    Text('🔥'),
+                    SizedBox(width: 8),
+                    Text('Use Firebase Service'),
+                  ],
+                ),
+              ),
+            ],
+            icon: const Icon(Icons.developer_mode),
+            tooltip: 'Developer Options',
+          ),
+        ],
+      ),
       body: Stack(
         children: [
           SafeArea(
@@ -116,14 +177,40 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
-                        Text(
-                          'Psycho',
-                          style: GoogleFonts.marckScript(
-                            fontSize: 52 * scale,
-                            fontWeight: FontWeight.w500,
-                            color: headingColor,
+                        // Service mode indicator (only in debug mode)
+                        if (const bool.fromEnvironment('dart.vm.product') == false) ...[
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: _isUsingFirebase ? Colors.orange.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(
+                                color: _isUsingFirebase ? Colors.orange : Colors.green,
+                                width: 1,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  _isUsingFirebase ? '🔥 Firebase AI' : '🎭 Fake Service',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: _isUsingFirebase ? Colors.orange : Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                Icon(
+                                  _isUsingFirebase ? Icons.cloud : Icons.developer_mode,
+                                  size: 14,
+                                  color: _isUsingFirebase ? Colors.orange : Colors.green,
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
+                          const SizedBox(height: 16),
+                        ],
                         TraitSelectionCard(
                           width: cardWidth,
                           selectedTraits: _selectedTraits,

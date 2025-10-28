@@ -2,16 +2,18 @@
 import 'dart:math' as math;
 import 'dart:ui';
 
-import 'package:flutter_app/models/match_profile.dart';
+import 'package:flutter_app/models/match_analysis.dart';
 import 'package:vector_math/vector_math_64.dart';
 
 class Metaball {
   Vector2 position;
   Vector2 velocity;
   final double radius;
-  final MatchProfile profile;
+  final MatchAnalysis analysis;
+  double scale = 1.0;
+  bool isBeingDragged = false;
 
-  Metaball(this.profile, {required this.radius}) 
+  Metaball(this.analysis, {required this.radius}) 
       : position = Vector2.zero(), 
         velocity = Vector2.zero();
 }
@@ -26,6 +28,9 @@ class MetaballSimulation {
 
   void update() {
     for (var ball in metaballs) {
+      // If a ball is being dragged by the user, don't apply simulation physics to it.
+      if (ball.isBeingDragged) continue;
+
       // Apply gravity towards the center
       final toCenter = Vector2(size.width / 2, size.height / 2) - ball.position;
       ball.velocity += toCenter.normalized() * gravity;

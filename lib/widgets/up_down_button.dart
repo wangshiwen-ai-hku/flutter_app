@@ -77,9 +77,9 @@ class _UpDownButtonState extends State<UpDownButton> with SingleTickerProviderSt
               alignment: Alignment.center,
               children: [
                 // Background / shadow: scale slightly to simulate compression
-                Transform.scale(
-                  scale: _shadowScaleAnimation.value,
-                  child: Positioned.fill(
+                Positioned.fill(
+                  child: Transform.scale(
+                    scale: _shadowScaleAnimation.value,
                     child: SvgPicture.asset('assets/svgs/down.svg', fit: BoxFit.contain),
                   ),
                 ),
