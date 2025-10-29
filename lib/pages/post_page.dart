@@ -330,50 +330,49 @@ class _PostCardState extends State<PostCard> {
           ),
         ],
       ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(16),
-        child: Stack(
-          alignment: Alignment.bottomCenter,
-          children: [
-            _buildMediaWidget(),
-            // Add a play/pause button overlay for videos
-            if (widget.post.mediaType == MediaType.video)
-              Center(
-                child: IconButton(
-                  icon: Icon(
-                    _videoController?.value.isPlaying ?? false ? Icons.pause_circle_filled : Icons.play_circle_filled,
-                    color: Colors.white.withOpacity(0.7),
-                    size: 40,
-                  ),
-                  onPressed: _toggleVideoPlayback,
-                ),
-              ),
-            Positioned.fill(
-              child: Container(
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      Colors.black.withOpacity(widget.post.mediaUrl != null ? 0.6 : 0.2),
-                      Colors.transparent,
-                      Colors.black.withOpacity(0.8)
-                    ],
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    stops: const [0.0, 0.4, 1.0],
+      child: GestureDetector(
+        onTap: _navigateToDetail,
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            alignment: Alignment.bottomCenter,
+            children: [
+              _buildMediaWidget(),
+              // Add a play/pause button overlay for videos
+              if (widget.post.mediaType == MediaType.video)
+                Center(
+                  child: IconButton(
+                    icon: Icon(
+                      _videoController?.value.isPlaying ?? false ? Icons.pause_circle_filled : Icons.play_circle_filled,
+                      color: Colors.white.withOpacity(0.7),
+                      size: 40,
+                    ),
+                    onPressed: _toggleVideoPlayback,
                   ),
                 ),
+              Positioned.fill(
+                child: Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        Colors.black.withOpacity(widget.post.mediaUrl != null ? 0.6 : 0.2),
+                        Colors.transparent,
+                        Colors.black.withOpacity(0.8)
+                      ],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: const [0.0, 0.4, 1.0],
+                    ),
+                  ),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.all(12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  Expanded(
-                    child: GestureDetector(
-                      onTap: _navigateToDetail,
-                      behavior: HitTestBehavior.opaque,
+              Padding(
+                padding: const EdgeInsets.all(12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Expanded(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -383,57 +382,81 @@ class _PostCardState extends State<PostCard> {
                         ],
                       ),
                     ),
-                  ),
-                  Row(
-                    children: [
-                      CircleAvatar(backgroundImage: NetworkImage(widget.post.authorImageUrl), radius: 12),
-                      const SizedBox(width: 8),
-                      Expanded(child: Text(widget.post.author, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: Colors.white, overflow: TextOverflow.ellipsis))),
-                      IconButton(icon: Icon(_isFavorited ? Icons.star : Icons.star_border, color: _isFavorited ? Colors.amber : Colors.white), onPressed: _toggleFavorite, iconSize: 20, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                      IconButton(icon: Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: _isLiked ? Colors.red : Colors.white), onPressed: _toggleLike, iconSize: 20, padding: const EdgeInsets.only(left: 4), constraints: const BoxConstraints()),
-                      Text(_likeCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            Positioned.fill(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: widget.isMember ? 0.0 : 1.0,
-                child: ClipRect(
-                  child: BackdropFilter(
-                    filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
-                    child: Container(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.5)],
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          stops: const [0.4, 1.0],
-                        ),
-                      ),
-                      alignment: Alignment.center,
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
-                        children: [
-                          const Icon(Icons.lock_outline, color: Colors.white, size: 32),
-                          const SizedBox(height: 4),
-                          Text(
-                            'Join to see more',
-                            style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                    Row(
+                      children: [
+                        CircleAvatar(backgroundImage: NetworkImage(widget.post.authorImageUrl), radius: 12),
+                        const SizedBox(width: 8),
+                        Expanded(child: Text(widget.post.author, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: Colors.white, overflow: TextOverflow.ellipsis))),
+                        GestureDetector(
+                          onTap: () {
+                            _toggleFavorite();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Icon(_isFavorited ? Icons.star : Icons.star_border, color: _isFavorited ? Colors.amber : Colors.white, size: 20),
                           ),
-                          const SizedBox(height: 20),
-                        ],
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: () {
+                            _toggleLike();
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: _isLiked ? Colors.red : Colors.white, size: 20),
+                                const SizedBox(width: 4),
+                                Text(_likeCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              Positioned.fill(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 300),
+                  opacity: widget.isMember ? 0.0 : 1.0,
+                  child: ClipRect(
+                    child: BackdropFilter(
+                      filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.5)],
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            stops: const [0.4, 1.0],
+                          ),
+                        ),
+                        alignment: Alignment.center,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          children: [
+                            const Icon(Icons.lock_outline, color: Colors.white, size: 32),
+                            const SizedBox(height: 4),
+                            Text(
+                              'Join to see more',
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 20),
+                          ],
+                        ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
+
