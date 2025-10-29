@@ -15,7 +15,11 @@
 flutter pub get
 cd backend/functions && npm install
 ```
+### 生成虚拟用户数据
 
+```dart
+dart scripts/
+```
 ### 配置API Key（选择其中一种方式
 
 1. 方式1：环境变量（推荐
