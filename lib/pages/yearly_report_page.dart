@@ -64,10 +64,10 @@ class YearlyReportPage extends StatelessWidget {
             description: 'This is the constellation of your personality this year.',
             // Mock data for the chart
             traitData: {
-              'storyteller': 5,
-              'dream log': 8,
-              'night owl': 3,
-              'observer': 6,
+              'Anxiety': 8,
+              'Depression': 6,
+              'ADHD': 4,
+              'PTSD': 3,
             },
           ),
           _buildPortraitHistoryCard(

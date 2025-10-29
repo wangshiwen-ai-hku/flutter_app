@@ -28,6 +28,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
   // --- State Variables ---
   late final List<Comment> _comments;
   late bool _isLiked;
+  late bool _isFavorited;
   late int _likeCount;
   final TextEditingController _commentController = TextEditingController();
 
@@ -36,6 +37,7 @@ class _PostDetailPageState extends State<PostDetailPage> {
     super.initState();
     // Initialize state from the widget's data
     _isLiked = false; // Assuming initial state is not liked
+    _isFavorited = widget.post.isFavorited;
     _likeCount = widget.post.likes;
     _comments = [
       const Comment(author: 'Miko', authorImageUrl: 'https://i.pravatar.cc/150?u=miko', text: 'This is a beautiful thought.'),
@@ -59,6 +61,13 @@ class _PostDetailPageState extends State<PostDetailPage> {
       } else {
         _likeCount--;
       }
+    });
+  }
+
+  void _toggleFavorite() {
+    setState(() {
+      _isFavorited = !_isFavorited;
+      widget.post.isFavorited = _isFavorited; // Update the original post object
     });
   }
 
@@ -161,7 +170,26 @@ class _PostDetailPageState extends State<PostDetailPage> {
             ),
           ),
         ),
-        const SizedBox(width: 24),
+        const SizedBox(width: 16),
+        InkWell(
+          onTap: _toggleFavorite,
+          borderRadius: BorderRadius.circular(8),
+          child: Padding(
+            padding: const EdgeInsets.all(4.0),
+            child: Row(
+              children: [
+                Icon(
+                  _isFavorited ? Icons.star : Icons.star_border,
+                  color: _isFavorited ? Colors.amber : Colors.grey[600],
+                  size: 20,
+                ),
+                const SizedBox(width: 4),
+                Text(_isFavorited ? 'Favorited' : 'Favorite', style: TextStyle(color: _isFavorited ? Colors.amber : Colors.grey[600])),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
         Row(
           children: [
             Icon(Icons.chat_bubble_outline, color: Colors.grey[600], size: 20),

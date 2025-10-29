@@ -302,17 +302,17 @@ class TraitSelectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cells = <_TraitCellData>[
       _TraitCellData(label: 'profile', isProfile: true),
-      _TraitCellData(label: 'storyteller'),
-      _TraitCellData(label: 'listener'),
-      _TraitCellData(label: 'dream log'),
-      _TraitCellData(label: 'night owl'),
-      _TraitCellData(label: 'world builder'),
-      _TraitCellData(label: 'observer'),
-      _TraitCellData(label: 'mood board'),
-      _TraitCellData(label: 'writer'),
-      _TraitCellData(label: 'sound hunt'),
-      _TraitCellData(label: 'rituals'),
-      _TraitCellData(label: 'sketches'),
+      _TraitCellData(label: 'Depression'),
+      _TraitCellData(label: 'Anxiety'),
+      _TraitCellData(label: 'Bipolar'),
+      _TraitCellData(label: 'ADHD'),
+      _TraitCellData(label: 'OCD'),
+      _TraitCellData(label: 'PTSD'),
+      _TraitCellData(label: 'BPD'),
+      _TraitCellData(label: 'NPD'),
+      _TraitCellData(label: 'Asperger'),
+      _TraitCellData(label: 'Autism'),
+      _TraitCellData(label: 'Eating D.'),
     ];
 
     return Container(

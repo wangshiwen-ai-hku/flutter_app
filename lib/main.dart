@@ -1,8 +1,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:firebase_core/firebase_core.dart';
-import 'package:flutter_app/firebase_options.dart';
+// Temporarily commented out due to Swift compilation errors
+// import 'package:firebase_core/firebase_core.dart';
+// import 'package:flutter_app/firebase_options.dart';
 import 'package:flutter_app/pages/home_page.dart';
 import 'package:flutter_app/services/service_locator.dart'; // Import the service locator
 
@@ -15,10 +16,10 @@ final ValueNotifier<ThemeMode> themeNotifier = ValueNotifier(ThemeMode.light);
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize Firebase
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Initialize Firebase - temporarily disabled due to Swift compilation errors
+  // await Firebase.initializeApp(
+  //   options: DefaultFirebaseOptions.currentPlatform,
+  // );
 
   await setupLocator(); // Set up the service locator
 

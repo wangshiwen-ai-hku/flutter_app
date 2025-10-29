@@ -92,7 +92,12 @@ class _ProfilePageState extends State<ProfilePage> {
                     crossAxisCellCount: post.crossAxisCellCount,
                     mainAxisCellCount: post.mainAxisCellCount,
                     // isMember is set to true to always allow viewing of own posts
-                    child: PostCard(post: post, isMember: true),
+                    child: PostCard(
+                      post: post, 
+                      isMember: true,
+                      isUnlocked: true, // Own posts are always unlocked
+                      onUnlock: () {}, // No-op since always unlocked
+                    ),
                   );
                 }).toList(),
               ),
