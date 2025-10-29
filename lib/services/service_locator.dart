@@ -2,7 +2,8 @@ import 'package:flutter/foundation.dart';
 import 'package:get_it/get_it.dart';
 import 'package:flutter_app/services/api_service.dart';
 import 'package:flutter_app/services/fake_api_service.dart';
-import 'package:flutter_app/services/firebase_api_service.dart';
+// Temporarily commented out due to Firebase dependency issues
+// import 'package:flutter_app/services/firebase_api_service.dart';
 
 // Global service locator instance.
 final GetIt locator = GetIt.instance;
@@ -30,10 +31,12 @@ Future<void> setupLocator() async {
   locator.registerSingletonAsync<ApiService>(() async {
     final shouldUseFirebase = !kDebugMode || useFirebaseInDebug;
 
-    if (shouldUseFirebase) {
-      print('🔥 Using Firebase API Service (with AI capabilities)');
-      return FirebaseApiService();
-    } else {
+    // Temporarily disabled Firebase service due to compilation issues
+    // if (shouldUseFirebase) {
+    //   print('🔥 Using Firebase API Service (with AI capabilities)');
+    //   return FirebaseApiService();
+    // } else {
+    if (true) {  // Always use fake service for now
       // Get Gemini API key from environment if LLM is enabled
       String? geminiApiKey;
       if (useLLMInDebug) {

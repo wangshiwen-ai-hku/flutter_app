@@ -52,8 +52,8 @@ class FakeApiService implements ApiService {
       uid: 'current_user_id',
       username: 'You',
       portrait: null,
-      traits: ['storyteller', 'night owl'],
-      freeText: 'Loves rainy nights and old books.',
+      traits: ['Anxiety', 'Depression'],
+      freeText: 'Seeking support and understanding in a safe space.',
       userPosts: [],
     );
 
@@ -456,7 +456,7 @@ Your task is to analyze two user profiles and provide a sharp, creative analysis
 1.  **`summary` (string):**
     - Write a **single, witty, and very short summary** of their dynamic (under 15 words).
     - This should feel like a clever joke, a modern slang phrase, or a playful metaphor that captures their connection.
-    - **Good examples:** "A classic case of a storyteller meeting their protagonist." or "Basically the same person, but one of them actually writes things down." or "The human equivalent of a rainy day and a good book."
+    - **Good examples:** "Two souls navigating the same storm with different anchors." or "Finding understanding in shared struggles and growth." or "Compassionate minds meeting in a space of healing."
 
 2.  **`totalScore` (number):**
     - Provide a holistic compatibility score from 0 to 100.

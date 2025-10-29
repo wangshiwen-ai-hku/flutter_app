@@ -99,6 +99,11 @@ class _PostPageState extends State<PostPage> {
   bool _isMember = false; // Simulate membership status
   late final ScrollController _scrollController;
   bool _isNavBarVisible = true;
+  
+  // Unlock system
+  final Set<int> _unlockedPostIndices = {}; // Track which posts are unlocked
+  int _freeUnlocksUsed = 0; // Track how many free unlocks used today
+  static const int _maxFreeUnlocks = 3; // Max free unlocks per day
 
   // Mock data - now a mutable list
   final List<Post> posts = [
@@ -143,6 +148,70 @@ class _PostPageState extends State<PostPage> {
     }
   }
 
+  void _onUnlockPost(int postIndex) {
+    if (_isMember) {
+      // Members can unlock everything
+      setState(() {
+        _unlockedPostIndices.add(postIndex);
+      });
+    } else {
+      // Non-members have limited unlocks
+      if (_freeUnlocksUsed < _maxFreeUnlocks) {
+        setState(() {
+          _unlockedPostIndices.add(postIndex);
+          _freeUnlocksUsed++;
+        });
+        
+        // Show confirmation
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Post unlocked! ${_maxFreeUnlocks - _freeUnlocksUsed} free unlocks remaining today.'),
+            backgroundColor: Colors.green,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Show upgrade prompt
+        _showUpgradeDialog();
+      }
+    }
+  }
+
+  void _showUpgradeDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Upgrade to Premium'),
+          content: const Text('You\'ve used all 3 free unlocks for today. Upgrade to Premium for unlimited access to all posts!'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Maybe Later'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                // Simulate upgrade
+                setState(() {
+                  _isMember = true;
+                });
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Welcome to Premium! All posts are now unlocked.'),
+                    backgroundColor: Colors.amber,
+                  ),
+                );
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF992121)),
+              child: const Text('Upgrade Now', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -153,9 +222,22 @@ class _PostPageState extends State<PostPage> {
             padding: const EdgeInsets.only(right: 8.0),
             child: Row(
               children: [
-                Text('会员解锁', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                if (!_isMember)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: Colors.blue[50],
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Text(
+                      'Free: ${_maxFreeUnlocks - _freeUnlocksUsed}',
+                      style: TextStyle(fontSize: 12, color: Colors.blue[700], fontWeight: FontWeight.w600),
+                    ),
+                  ),
+                const SizedBox(width: 8),
+                Text(_isMember ? 'Premium' : 'Free', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
                 const SizedBox(width: 4),
-                const Icon(Icons.workspace_premium_outlined, size: 18, color: Colors.amber),
+                Icon(_isMember ? Icons.workspace_premium : Icons.workspace_premium_outlined, size: 18, color: _isMember ? Colors.amber : Colors.grey),
                 Switch(
                   value: _isMember,
                   onChanged: (value) => setState(() => _isMember = value),
@@ -173,11 +255,20 @@ class _PostPageState extends State<PostPage> {
           crossAxisCount: 2,
           mainAxisSpacing: 8,
           crossAxisSpacing: 8,
-          children: posts.map((post) {
+          children: posts.asMap().entries.map((entry) {
+            final index = entry.key;
+            final post = entry.value;
+            final isUnlocked = _isMember || _unlockedPostIndices.contains(index);
+            
             return StaggeredGridTile.count(
               crossAxisCellCount: post.crossAxisCellCount,
               mainAxisCellCount: post.mainAxisCellCount,
-              child: PostCard(post: post, isMember: _isMember),
+              child: PostCard(
+                post: post, 
+                isMember: _isMember,
+                isUnlocked: isUnlocked,
+                onUnlock: () => _onUnlockPost(index),
+              ),
             );
           }).toList(),
         ),
@@ -206,8 +297,16 @@ class _PostPageState extends State<PostPage> {
 class PostCard extends StatefulWidget {
   final Post post;
   final bool isMember;
+  final bool isUnlocked;
+  final VoidCallback onUnlock;
 
-  const PostCard({super.key, required this.post, required this.isMember});
+  const PostCard({
+    super.key, 
+    required this.post, 
+    required this.isMember,
+    required this.isUnlocked,
+    required this.onUnlock,
+  });
 
   @override
   State<PostCard> createState() => _PostCardState();
@@ -372,7 +471,7 @@ class _PostCardState extends State<PostCard> {
                 children: [
                   Expanded(
                     child: GestureDetector(
-                      onTap: _navigateToDetail,
+                      onTap: widget.isUnlocked ? _navigateToDetail : null,
                       behavior: HitTestBehavior.opaque,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.end,
@@ -386,28 +485,56 @@ class _PostCardState extends State<PostCard> {
                   ),
                   Row(
                     children: [
-                      CircleAvatar(backgroundImage: NetworkImage(widget.post.authorImageUrl), radius: 12),
+                      CircleAvatar(backgroundImage: NetworkImage(widget.post.authorImageUrl), radius: 10),
+                      const SizedBox(width: 6),
+                      Expanded(child: Text(widget.post.author, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: Colors.white, overflow: TextOverflow.ellipsis, fontSize: 12))),
+                      GestureDetector(
+                        onTap: widget.isUnlocked ? _toggleFavorite : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(_isFavorited ? Icons.star : Icons.star_border, color: _isFavorited ? Colors.amber : Colors.white, size: 16),
+                          ],
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Expanded(child: Text(widget.post.author, style: theme.textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w600, color: Colors.white, overflow: TextOverflow.ellipsis))),
-                      IconButton(icon: Icon(_isFavorited ? Icons.star : Icons.star_border, color: _isFavorited ? Colors.amber : Colors.white), onPressed: _toggleFavorite, iconSize: 20, padding: EdgeInsets.zero, constraints: const BoxConstraints()),
-                      IconButton(icon: Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: _isLiked ? Colors.red : Colors.white), onPressed: _toggleLike, iconSize: 20, padding: const EdgeInsets.only(left: 4), constraints: const BoxConstraints()),
-                      Text(_likeCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                      GestureDetector(
+                        onTap: widget.isUnlocked ? _toggleLike : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(_isLiked ? Icons.favorite : Icons.favorite_border, color: _isLiked ? Colors.red : Colors.white, size: 16),
+                            const SizedBox(width: 2),
+                            Text(_likeCount.toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: widget.isUnlocked ? _navigateToDetail : null,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.comment_outlined, color: Colors.white, size: 16),
+                            const SizedBox(width: 2),
+                            Text(widget.post.comments.toString(), style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.w600)),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                 ],
               ),
             ),
-            Positioned.fill(
-              child: AnimatedOpacity(
-                duration: const Duration(milliseconds: 300),
-                opacity: widget.isMember ? 0.0 : 1.0,
+            if (!widget.isUnlocked)
+              Positioned.fill(
                 child: ClipRect(
                   child: BackdropFilter(
                     filter: ui.ImageFilter.blur(sigmaX: 8.0, sigmaY: 8.0),
                     child: Container(
                       decoration: BoxDecoration(
                         gradient: LinearGradient(
-                          colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.5)],
+                          colors: [Colors.black.withOpacity(0.0), Colors.black.withOpacity(0.7)],
                           begin: Alignment.topCenter,
                           end: Alignment.bottomCenter,
                           stops: const [0.4, 1.0],
@@ -415,22 +542,34 @@ class _PostCardState extends State<PostCard> {
                       ),
                       alignment: Alignment.center,
                       child: Column(
-                        mainAxisAlignment: MainAxisAlignment.end,
+                        mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           const Icon(Icons.lock_outline, color: Colors.white, size: 32),
-                          const SizedBox(height: 4),
+                          const SizedBox(height: 8),
                           Text(
-                            'Join to see more',
+                            widget.isMember ? 'Tap to unlock' : 'Unlock to view',
                             style: theme.textTheme.titleMedium?.copyWith(color: Colors.white, fontWeight: FontWeight.w600),
                           ),
-                          const SizedBox(height: 20),
+                          const SizedBox(height: 12),
+                          ElevatedButton(
+                            onPressed: widget.onUnlock,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF992121),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+                            ),
+                            child: Text(
+                              widget.isMember ? 'Unlock' : 'Free Unlock',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ),
                         ],
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
           ],
         ),
       ),
