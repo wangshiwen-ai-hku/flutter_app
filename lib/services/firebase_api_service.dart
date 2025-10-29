@@ -34,6 +34,14 @@ class FirebaseApiService implements ApiService {
   }
 
   @override
+  void updateCurrentUserTraits(List<String> traits, String freeText) {
+    // For Firebase service, this method doesn't need to do anything since
+    // the user's traits are stored in Firestore and retrieved by the backend
+    // when getMatches is called. The backend should use the latest user data.
+    print('FirebaseApiService: updateCurrentUserTraits called - traits will be used by backend');
+  }
+
+  @override
   Future<List<Post>> getPublicPosts() async {
     // For now, return mock data - you'll need to implement Firestore integration
     return [];
@@ -71,7 +79,7 @@ class FirebaseApiService implements ApiService {
         print('Processing match data: ${doc.id}');
         try {
           final match = MatchAnalysis.fromJson(data);
-          print('Successfully parsed match: ${match.id}, aiScore: ${match.aiScore}, finalScore: ${match.finalScore}');
+          print('Successfully parsed match: ${match.id}, totalScore: ${match.totalScore}');
           return match;
         } catch (e) {
           print('Error parsing match data for ${doc.id}: $e');
@@ -81,7 +89,7 @@ class FirebaseApiService implements ApiService {
       }).toList();
 
       // Sort matches by final score (highest first)
-      matches.sort((a, b) => b.finalScore.compareTo(a.finalScore));
+      matches.sort((a, b) => b.totalScore.compareTo(a.totalScore));
 
       print('🎯 Retrieved ${matches.length} matches from Firestore with LLM analysis');
       return matches;
@@ -92,6 +100,14 @@ class FirebaseApiService implements ApiService {
       // For now, rethrow the error
       rethrow;
     }
+  }
+
+  @override
+  Future<List<MatchAnalysis>> getCachedMatches(String uid) async {
+    // For Firebase service, caching is handled by the backend
+    // For now, just return empty list as this feature is mainly for development
+    print('FirebaseApiService: getCachedMatches not implemented yet');
+    return [];
   }
 
   @override

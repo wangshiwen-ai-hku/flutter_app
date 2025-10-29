@@ -9,6 +9,7 @@ import 'package:google_fonts/google_fonts.dart';
 
 import '../widgets/up_down_button.dart';
 import '../services/service_locator.dart';
+import '../services/api_service.dart';
 import 'canvas_drawing_page.dart';
 import 'match_result_page.dart';
 
@@ -58,6 +59,17 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
   }
 
   void _startMatching() {
+    // Update the API service with the user's selected traits and free text
+    final apiService = locator<ApiService>();
+    final selectedTraits = _selectedTraits.toList();
+    final freeText = _shareController.text.trim().isEmpty ? 'No description provided' : _shareController.text.trim();
+
+    print('🎯 FeatureSelectionPage: Starting matching with user selections');
+    print('   Selected traits: $selectedTraits');
+    print('   Free text: "$freeText"');
+
+    apiService.updateCurrentUserTraits(selectedTraits, freeText);
+
     Navigator.of(context).push(MaterialPageRoute(
       builder: (context) => const MatchResultPage(),
     ));
@@ -110,51 +122,38 @@ class _FeatureSelectionPageState extends State<FeatureSelectionPage>
         title: const Text('Select Your Traits'),
         backgroundColor: Colors.transparent,
         elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.of(context).pop();
+          },
+          tooltip: 'Back to Home',
+        ),
         actions: [
-          // Developer option to switch between fake and Firebase services
-          PopupMenuButton<String>(
-            onSelected: (value) {
-              switch (value) {
-                case 'switch_to_fake':
-                  switchToFakeService();
-                  setState(() => _isUsingFirebase = false);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('🔄 Switched to Fake Service')),
-                  );
-                  break;
-                case 'switch_to_firebase':
-                  switchToFirebaseService();
-                  setState(() => _isUsingFirebase = true);
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('🔥 Switched to Firebase Service')),
-                  );
-                  break;
-              }
+          IconButton(
+            icon: SvgPicture.asset(
+              'assets/svgs/arrow.svg',
+              width: 24,
+              height: 24,
+              color: Colors.grey[600],
+            ),
+            onPressed: () async {
+              // Skip LLM and show cached results
+              print('🔄 FeatureSelectionPage: Viewing last match results (skip LLM)');
+
+              // Update user traits first
+              final apiService = locator<ApiService>();
+              final selectedTraits = _selectedTraits.toList();
+              final freeText = _shareController.text.trim().isEmpty ? 'No description provided' : _shareController.text.trim();
+
+              apiService.updateCurrentUserTraits(selectedTraits, freeText);
+
+              // Navigate to match results with cached flag
+              Navigator.of(context).push(MaterialPageRoute(
+                builder: (context) => const MatchResultPage(useCachedResults: true),
+              ));
             },
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'switch_to_fake',
-                child: Row(
-                  children: [
-                    Text('🎭'),
-                    SizedBox(width: 8),
-                    Text('Use Fake Service'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'switch_to_firebase',
-                child: Row(
-                  children: [
-                    Text('🔥'),
-                    SizedBox(width: 8),
-                    Text('Use Firebase Service'),
-                  ],
-                ),
-              ),
-            ],
-            icon: const Icon(Icons.developer_mode),
-            tooltip: 'Developer Options',
+            tooltip: 'View Last Match Results',
           ),
         ],
       ),

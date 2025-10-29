@@ -20,9 +20,12 @@ class FakeApiService implements ApiService {
   final String? geminiApiKey;
 
   // --- Fake Data Store ---
-  late final UserData _currentUser;
+  late UserData _currentUser;
   List<UserData> _mockUsers = [];
   final List<Post> _publicPosts = [];
+
+  // --- Match History Cache ---
+  List<MatchAnalysis>? _lastMatchResults;
 
   /// Private constructor to be called by the async factory.
   FakeApiService._({
@@ -53,6 +56,15 @@ class FakeApiService implements ApiService {
       freeText: 'Loves rainy nights and old books.',
       userPosts: [],
     );
+
+    print('🏗️ FakeApiService: Initialized current user');
+    print('   Initial user data:');
+    print('     - uid: ${_currentUser.uid}');
+    print('     - username: ${_currentUser.username}');
+    print('     - traits: ${_currentUser.traits}');
+    print('     - freeText: "${_currentUser.freeText}"');
+    print('     - portrait: ${_currentUser.portrait != null ? "present" : "null"}');
+    print('     - userPosts count: ${_currentUser.userPosts.length}');
 
     // Load the pre-generated mock users from the JSON file
     try {
@@ -96,9 +108,44 @@ class FakeApiService implements ApiService {
   }
 
   @override
+  Future<List<MatchAnalysis>> getCachedMatches(String uid) async {
+    await Future.delayed(_latency);
+
+    print('🗄️ FakeApiService.getCachedMatches called for uid: $uid');
+    print('   Cached results available: ${_lastMatchResults != null}');
+
+    if (_lastMatchResults != null) {
+      print('   Returning ${_lastMatchResults!.length} cached match results');
+      return _lastMatchResults!;
+    } else {
+      print('   No cached results available, returning empty list');
+      return [];
+    }
+  }
+
+  @override
   Future<void> updateUser(UserData user) async {
     await Future.delayed(_latency);
     print('FakeApiService: Updating user ${user.uid}');
+  }
+
+  @override
+  void updateCurrentUserTraits(List<String> traits, String freeText) {
+    print('🔄 FakeApiService: Updating current user traits...');
+    print('   Previous traits: ${_currentUser.traits}');
+    print('   Previous freeText: "${_currentUser.freeText}"');
+    print('   New traits: $traits');
+    print('   New freeText: "$freeText"');
+
+    _currentUser = _currentUser.copyWith(
+      traits: traits,
+      freeText: freeText,
+    );
+
+    print('✅ FakeApiService: Current user updated successfully');
+    print('   Final traits: ${_currentUser.traits}');
+    print('   Final freeText: "${_currentUser.freeText}"');
+    print('   Full user data: uid=${_currentUser.uid}, username=${_currentUser.username}');
   }
 
   @override
@@ -128,25 +175,41 @@ class FakeApiService implements ApiService {
 
     print('🧪 FakeApiService.getMatches called for uid: $uid');
     print('   LLM enabled: $useLLM, API key present: ${geminiApiKey != null}');
-    print('   Current user traits: ${_currentUser.traits}');
+    print('   Current user data:');
+    print('     - uid: ${_currentUser.uid}');
+    print('     - username: ${_currentUser.username}');
+    print('     - traits: ${_currentUser.traits}');
+    print('     - freeText: "${_currentUser.freeText}"');
+    print('     - portrait: ${_currentUser.portrait != null ? "present" : "null"}');
+    print('     - userPosts count: ${_currentUser.userPosts.length}');
     print('   Number of mock users: ${_mockUsers.length}');
 
     if (_mockUsers.isEmpty) {
-      print('No mock users available');
+      print('❌ No mock users available');
       return [];
     }
 
+    List<MatchAnalysis> matches;
     if (useLLM && geminiApiKey != null) {
       // Use LLM-powered matching
-      return await _getMatchesWithLLM();
+      matches = await _getMatchesWithLLM();
     } else {
       // Use traditional algorithm
-      return await _getMatchesTraditional();
+      matches = await _getMatchesTraditional();
     }
+
+    // Cache the results for future use
+    _lastMatchResults = matches;
+    print('💾 Cached ${matches.length} match results for future use');
+
+    return matches;
   }
 
   Future<List<MatchAnalysis>> _getMatchesTraditional() async {
     print('🎭 Using traditional matching algorithm');
+    print('   Current user for matching:');
+    print('     - traits: ${_currentUser.traits}');
+    print('     - freeText: "${_currentUser.freeText}"');
 
     final List<MapEntry<UserData, double>> scoredUsers = [];
 
@@ -168,10 +231,13 @@ class FakeApiService implements ApiService {
       final textBonus = _calculateTextBonus(_currentUser.freeText, mockUser.freeText);
       score += textBonus;
 
+      // Apply a power function to increase score variance for more visual distinction
+      score = pow(score, 1.5).toDouble();
+
       // Ensure score doesn't exceed 1.0
       score = score.clamp(0.0, 1.0);
 
-      if (score > 0.15) { // Lowered threshold to get more diverse results
+      if (score > 0.1) { // Lowered threshold to get more diverse results
         scoredUsers.add(MapEntry(mockUser, score));
       }
     }
@@ -188,16 +254,13 @@ class FakeApiService implements ApiService {
         id: 'match_${mockUser.uid}',
         userA: _currentUser,
         userB: mockUser,
-        aiScore: score,
-        matchSummary: _generateMatchSummary(_currentUser, mockUser),
-        traitCompatibility: {
-          for (var trait in (_currentUser.traits.toSet()..addAll(mockUser.traits)).toList())
-            trait: _random.nextDouble()
+        totalScore: score,
+        matchSummary: "The human equivalent of a rainy day and a good book.", // Fake witty summary
+        similarFeatures: {
+          'Creative Spark': ScoredFeature(score: (_random.nextDouble() * 40 + 60).toInt(), explanation: 'A shared passion for building worlds and telling stories.'),
+          'Introspective Depth': ScoredFeature(score: (_random.nextDouble() * 40 + 50).toInt(), explanation: 'A connection over quiet moments and deep thoughts.'),
+          'Shared Aesthetic': ScoredFeature(score: (_random.nextDouble() * 30 + 40).toInt(), explanation: 'An appreciation for similar atmospheres and art.'),
         },
-        compatibilityChart: null,
-        finalScore: score, // Use the calculated score as final score
-        conversationStarters: _generateConversationStarters(_currentUser, mockUser),
-        formulaScore: score, // Use the same score for formula score for now
       );
     }).toList();
 
@@ -206,6 +269,9 @@ class FakeApiService implements ApiService {
 
   Future<List<MatchAnalysis>> _getMatchesWithLLM() async {
     print('🤖 Using LLM-powered matching algorithm');
+    print('   Current user for LLM matching:');
+    print('     - traits: ${_currentUser.traits}');
+    print('     - freeText: "${_currentUser.freeText}"');
 
     // Step 1: Pre-filter candidates using traditional algorithm
     final List<MapEntry<UserData, double>> preFilteredCandidates = [];
@@ -262,7 +328,7 @@ class FakeApiService implements ApiService {
     print('✅ All LLM analyses completed (${matches.length} matches)');
 
     // Sort by final score (highest first)
-    matches.sort((a, b) => b.finalScore.compareTo(a.finalScore));
+    matches.sort((a, b) => b.totalScore.compareTo(a.totalScore));
 
     print('🎯 Generated ${matches.length} matches with LLM analysis');
     return matches;
@@ -282,71 +348,7 @@ class FakeApiService implements ApiService {
     return bonus;
   }
 
-  String _generateMatchSummary(UserData userA, UserData userB) {
-    final sharedTraits = userA.traits.toSet().intersection(userB.traits.toSet());
-    final complementaryPairs = [
-      {'storyteller', 'listener'},
-      {'world builder', 'observer'},
-      {'writer', 'dream log'},
-    ];
-    final complementaryMatches = complementaryPairs.where((pair) {
-      return (userA.traits.contains(pair.first) && userB.traits.contains(pair.last)) ||
-             (userA.traits.contains(pair.last) && userB.traits.contains(pair.first));
-    }).toList();
 
-    if (sharedTraits.isNotEmpty) {
-      return 'You and ${userB.username} both identify as a ${sharedTraits.first}. This shared perspective could be a great starting point for a deep conversation.';
-    } else if (complementaryMatches.isNotEmpty) {
-      final pair = complementaryMatches.first;
-      return 'Your \'${pair.first}\' nature seems to be a perfect complement to ${userB.username}\'s \'${pair.last}\' side. You might find a fascinating dynamic between you.';
-    } else {
-      return 'You and ${userB.username} have different traits, which could lead to discovering new perspectives from each other.';
-    }
-  }
-
-  List<String> _generateConversationStarters(UserData userA, UserData userB) {
-    final starters = <String>[];
-
-    // Generate conversation starters based on traits and descriptions
-    final allTraits = {...userA.traits, ...userB.traits};
-
-    if (allTraits.contains('storyteller') || allTraits.contains('writer')) {
-      starters.add('What\'s the most interesting story you\'ve heard or told recently?');
-    }
-    if (allTraits.contains('dreamer') || allTraits.contains('dream log')) {
-      starters.add('What do your dreams usually tell you about your waking life?');
-    }
-    if (allTraits.contains('night owl')) {
-      starters.add('What do you love most about the quiet hours of the night?');
-    }
-    if (allTraits.contains('listener')) {
-      starters.add('What\'s something you\'ve learned from really listening to someone?');
-    }
-    if (allTraits.contains('world builder')) {
-      starters.add('If you could build any world, what would be the first thing you create?');
-    }
-    if (allTraits.contains('observer')) {
-      starters.add('What details do you notice that others usually miss?');
-    }
-
-    // If we don't have enough trait-based starters, add some generic ones
-    final genericStarters = [
-      'What brings you the most joy in your creative pursuits?',
-      'What\'s a book, movie, or experience that changed your perspective?',
-      'If you could have dinner with any historical figure, who would it be?',
-      'What\'s something you\'re passionate about that you wish more people understood?',
-    ];
-
-    // Fill up to 2 starters
-    while (starters.length < 2 && genericStarters.isNotEmpty) {
-      final starter = genericStarters[_random.nextInt(genericStarters.length)];
-      if (!starters.contains(starter)) {
-        starters.add(starter);
-      }
-    }
-
-    return starters.take(2).toList();
-  }
 
   /// Shows waiting messages with random jokes while LLM analysis is running
   void _showWaitingMessages(int candidateCount) {
@@ -381,46 +383,42 @@ class FakeApiService implements ApiService {
 
     if (llmResponse != null) {
       // Convert AI score from 0-100 to 0.0-1.0
-      final aiScore = (llmResponse['aiScore'] as num).toDouble() / 100.0;
+      final aiScore = (llmResponse['totalScore'] as num).toDouble() / 100.0;
 
       // Calculate final score (weighted combination)
-      final finalScore = formulaScore * 0.3 + aiScore * 0.7;
+      final finalScore = (formulaScore * 0.3 + aiScore * 0.7).clamp(0.0, 1.0);
+
+      // Parse the similar features map
+      final featuresData = llmResponse['similarFeatures'] as Map<String, dynamic>? ?? {};
+      final similarFeatures = featuresData.map(
+        (key, value) => MapEntry(key, ScoredFeature.fromJson(value as Map<String, dynamic>)),
+      );
 
       final match = MatchAnalysis(
         id: 'llm_match_${candidate.uid}',
         userA: _currentUser,
         userB: candidate,
-        aiScore: aiScore.clamp(0.0, 1.0),
-        matchSummary: llmResponse['summary'] ?? _generateMatchSummary(_currentUser, candidate),
-        traitCompatibility: {
-          for (var trait in (_currentUser.traits.toSet()..addAll(candidate.traits)).toList())
-            trait: _random.nextDouble()
-        },
-        compatibilityChart: null,
-        finalScore: finalScore.clamp(0.0, 1.0),
-        conversationStarters: List<String>.from(llmResponse['conversationStarters'] ?? _generateConversationStarters(_currentUser, candidate)),
-        formulaScore: formulaScore,
+        totalScore: finalScore,
+        matchSummary: llmResponse['summary'] ?? 'A connection waiting to be written.',
+        similarFeatures: similarFeatures,
       );
 
       print('✅ LLM analysis completed for ${candidate.username}: AI=${aiScore.toStringAsFixed(2)}, Final=${finalScore.toStringAsFixed(2)}');
       return match;
     } else {
       print('⚠️ LLM analysis failed for ${candidate.username}, using fallback');
-      // Fallback to traditional algorithm
+      // Fallback to traditional algorithm but with the new data structure
+      final score = pow(formulaScore, 1.5).toDouble().clamp(0.0, 1.0);
       final match = MatchAnalysis(
         id: 'fallback_match_${candidate.uid}',
         userA: _currentUser,
         userB: candidate,
-        aiScore: formulaScore,
-        matchSummary: _generateMatchSummary(_currentUser, candidate),
-        traitCompatibility: {
-          for (var trait in (_currentUser.traits.toSet()..addAll(candidate.traits)).toList())
-            trait: _random.nextDouble()
+        totalScore: score,
+        matchSummary: "The human equivalent of a rainy day and a good book.", // Fake witty summary
+        similarFeatures: {
+          'Creative Spark': ScoredFeature(score: (_random.nextDouble() * 40 + 60).toInt(), explanation: 'A shared passion for building worlds and telling stories.'),
+          'Introspective Depth': ScoredFeature(score: (_random.nextDouble() * 40 + 50).toInt(), explanation: 'A connection over quiet moments and deep thoughts.'),
         },
-        compatibilityChart: null,
-        finalScore: formulaScore,
-        conversationStarters: _generateConversationStarters(_currentUser, candidate),
-        formulaScore: formulaScore,
       );
       return match;
     }
@@ -440,9 +438,8 @@ class FakeApiService implements ApiService {
 
     try {
       final prompt = '''
-You are a thoughtful and creative matchmaker for a niche, artistic social app.
-Your task is to analyze two user profiles and write a compelling summary about why they might connect.
-You must also provide a compatibility score and suggest conversation starters.
+You are a witty and insightful matchmaker for a niche, artistic social app.
+Your task is to analyze two user profiles and provide a sharp, creative analysis of their compatibility.
 
 **Analyze the following two users:**
 
@@ -454,21 +451,43 @@ You must also provide a compatibility score and suggest conversation starters.
 - Traits: ${userB.traits.join(", ")}
 - Their own words: "${userB.freeText}"
 
-**Your Thought Process (Follow these steps):**
-1.  **Identify Commonalities:** Look for shared traits or similar themes and keywords in their free text (e.g., both mention "night", "books", "art").
-2.  **Identify Complementary Pairs:** Look for traits that complement each other well (e.g., "storyteller" and "listener", or "world builder" and "observer").
-3.  **Synthesize a Creative Summary:** Based on your analysis, write a short, insightful, and slightly poetic summary (2-3 sentences) about their potential connection. Do NOT just list their traits. Be creative.
-4.  **Generate a Compatibility Score:** Based on your analysis, provide a holistic compatibility score from 0 to 100. A higher score means a stronger potential connection.
-5.  **Suggest Conversation Starters:** Create two interesting, open-ended questions that one user could ask the other based on their profiles.
+**Your Output (MUST be a single JSON object):**
+
+1.  **`summary` (string):**
+    - Write a **single, witty, and very short summary** of their dynamic (under 15 words).
+    - This should feel like a clever joke, a modern slang phrase, or a playful metaphor that captures their connection.
+    - **Good examples:** "A classic case of a storyteller meeting their protagonist." or "Basically the same person, but one of them actually writes things down." or "The human equivalent of a rainy day and a good book."
+
+2.  **`totalScore` (number):**
+    - Provide a holistic compatibility score from 0 to 100.
+
+3.  **`similarFeatures` (object):**
+    - Identify 3-4 key areas of similarity or complementarity.
+    - For each area, provide a short title (as the key), and its value should be an object with:
+        - **`score`**: A numeric score from 0-100 for that specific feature.
+        - **`explanation`**: A brief, insightful explanation.
 
 **Output Format:**
 You MUST respond with only a single, valid JSON object. Do not include any text or markdown formatting before or after the JSON object.
 
 ```json
 {
-  "summary": "string",
-  "aiScore": number,
-  "conversationStarters": ["string1", "string2"]
+  "summary": "A witty one-liner about the match.",
+  "totalScore": 88,
+  "similarFeatures": {
+    "Creative Spark": {
+      "score": 90,
+      "explanation": "Both users share a passion for building worlds and telling stories, suggesting a strong creative synergy."
+    },
+    "Introspective Depth": {
+      "score": 80,
+      "explanation": "A shared appreciation for quiet moments and deep thoughts means they'll likely connect on a meaningful level."
+    },
+    "Shared Aesthetic": {
+      "score": 75,
+      "explanation": "Their love for 'rainy nights' and 'old books' points to a similar taste in atmosphere and art."
+    }
+  }
 }
 ```
 ''';
@@ -522,11 +541,16 @@ You MUST respond with only a single, valid JSON object. Do not include any text 
                 final parsed = json.decode(jsonText);
                 print('🎯 Parsed response keys: ${parsed.keys.toList()}');
 
-                if (parsed.containsKey('summary') && parsed.containsKey('aiScore') && parsed.containsKey('conversationStarters')) {
-                  print('✅ LLM response validation passed');
-                  return parsed;
+                if (parsed.containsKey('summary') && parsed.containsKey('totalScore') && parsed.containsKey('similarFeatures')) {
+                  final features = parsed['similarFeatures'] as Map<String, dynamic>;
+                  if (features.isNotEmpty) {
+                    print('✅ LLM response validation passed');
+                    return parsed;
+                  } else {
+                    print('❌ LLM response field "similarFeatures" is empty');
+                  }
                 } else {
-                  print('❌ LLM response missing required fields: summary, aiScore, conversationStarters');
+                  print('❌ LLM response missing required fields: summary, totalScore, similarFeatures');
                   print('   Available fields: ${parsed.keys.toList()}');
                 }
               } else {

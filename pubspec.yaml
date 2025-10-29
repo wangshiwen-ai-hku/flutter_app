@@ -30,6 +30,8 @@ dependencies:
   video_player: ^2.10.0
   get_it: ^8.2.0
   http: ^1.2.1
+  flip_card: ^0.7.0
+  fl_chart: ^1.1.1
 
 dev_dependencies:
   flutter_test:

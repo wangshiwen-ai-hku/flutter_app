@@ -22,6 +22,14 @@ abstract class ApiService {
   /// complete with detailed AI analysis for each.
   Future<List<MatchAnalysis>> getMatches(String uid);
 
+  /// Gets cached match results if available, otherwise returns empty list.
+  /// Used for quickly viewing previous match results without recomputing.
+  Future<List<MatchAnalysis>> getCachedMatches(String uid);
+
+  /// Updates the current user's traits and free text for matching purposes.
+  /// This is mainly used by the fake service to get real-time user input.
+  void updateCurrentUserTraits(List<String> traits, String freeText);
+
   /// Creates a new post.
   Future<void> createPost(Post post);
 

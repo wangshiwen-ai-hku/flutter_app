@@ -16,47 +16,16 @@ flutter pub get
 cd backend/functions && npm install
 ```
 
-### Firebase设置
+### 配置API Key（选择其中一种方式
 
-1. **设置Firebase项目**
-   ```bash
-   firebase use studio-291983403-af613
-   ```
-
-2. **获取Gemini API Key**
-   - 访问 [Google AI Studio](https://makersuite.google.com/app/apikey)
-   - 创建新的API Key
-   - 复制API Key
-
-3. **配置API Key（选择其中一种方式）**
-
-   **方式1：环境变量（推荐）**
-   ```bash
-   # 设置环境变量
-   export GEMINI_API_KEY="你的API_KEY"
-
-   # 或者创建 .env 文件（在 backend/functions/ 目录下）
-   echo "GEMINI_API_KEY=你的API_KEY" > backend/functions/.env
-   ```
-
-   **方式2：Firebase配置**
-   ```bash
-   firebase functions:config:set gemini.key="你的API_KEY"
-   ```
-
-4. **部署Cloud Functions**
-   ```bash
-   # 如果使用环境变量
-   firebase deploy --only functions
-
-   # 或者指定环境变量（推荐用于CI/CD）
-   firebase deploy --only functions --env-vars GEMINI_API_KEY=你的API_KEY
-   ```
-
-### 运行应用
-
+1. 方式1：环境变量（推荐
 ```bash
-flutter run -d chrome
+# 设置环境变量
+export GEMINI_API_KEY="你的API_KEY"
+```
+2. 或者创建 .env 文件（在 backend/functions/ 目录下）
+```bash
+echo "GEMINI_API_KEY=你的API_KEY" > backend/functions/.env
 ```
 
 ## 🔧 开发模式
@@ -70,62 +39,14 @@ flutter run -d chrome
 
 在应用中点击右上角的开发者模式图标，可以实时切换服务模式，无需重启应用。
 
-### 开发模式启用LLM
-
-在开发模式下，你可以启用真实的LLM匹配分析：
-
-1. **设置环境变量**
-   ```bash
-   export GEMINI_API_KEY="你的Gemini_API密钥"
-   ```
-
-2. **在代码中启用LLM**
-   ```dart
-   import 'package:flutter_app/services/service_locator.dart';
-
-   // 启用LLM模式
-   enableLLMInDebug();
-
-   // 或者禁用LLM模式
-   disableLLMInDebug();
-   ```
-
-3. **在Flutter运行时传递环境变量**
-   ```bash
-   flutter run --dart-define=GEMINI_API_KEY=你的API密钥
-   ```
-
-LLM模式会调用真实的Gemini AI API，为匹配提供真实的AI分析，包括兼容性评分、诗意总结和对话话题建议。
-
-### 应用启动时启用LLM
+### 应用启动时启用LLM 加入APIKEY
 
 在应用启动时自动启用LLM调试模式：
 
 ```bash
 # 设置API密钥和启用标志
 export GEMINI_API_KEY="你的Gemini_API密钥"
-flutter run --dart-define=ENABLE_DEBUG_LLM=true
-```
-
-或者在代码中直接启用（在main.dart中）：
-
-```dart
-// 在main()函数中添加
-enableLLMInDebug();
-```
-
-### 运行时切换LLM模式
-
-在应用运行时动态切换：
-
-```dart
-import 'package:flutter_app/services/service_locator.dart';
-
-// 启用LLM模式
-enableLLMInDebug();
-
-// 禁用LLM模式
-disableLLMInDebug();
+flutter run --dart-define=ENABLE_DEBUG_LLM=true --dart-define=GEMINI_API_KEY=YOUR_API_KEY
 ```
 
 ### 测试LLM功能
@@ -135,39 +56,9 @@ disableLLMInDebug();
 ```bash
 # 设置API密钥
 export GEMINI_API_KEY="你的Gemini_API密钥"
-
-# 运行测试
-dart scripts/test_debug_llm.dart
-```
-
-这个脚本会：
-- ✅ 检查API密钥配置和格式
-- 🌐 验证网络连接
-- 🤖 启用LLM调试模式
-- 🎯 执行匹配算法测试
-- 📊 显示详细的匹配结果分析
-
-### LLM调试信息
-
-启用LLM后，你会在控制台看到详细的调试信息：
-
-```
-🔄 Calling LLM API for match: Alex ↔ Jordan
-   API Key length: 39
-   User A traits: [storyteller, night owl]
-   User B traits: [listener, dreamer]
-🌐 API URL: https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=...
-📤 Request body length: 1250 characters
-📥 Response status: 200
-📥 Response headers: {...}
-📥 Response body length: 456 characters
-✅ API call successful, parsing response...
-📋 Parsed JSON keys: [candidates]
-👤 Candidate keys: [content, finishReason, index]
-📝 Raw LLM response: {...}
-🧹 Cleaned JSON text: {"summary": "...", "aiScore": 85, "conversationStarters": [...]}
-🎯 Parsed response keys: [summary, aiScore, conversationStarters]
-✅ LLM response validation passed
+cd backend/functions/
+pip install -r requirements.txt
+python test-llm.py
 ```
 
 ### 常见错误排查
@@ -210,51 +101,6 @@ firebase deploy --only functions --env-vars GEMINI_API_KEY=你的密钥
 firebase functions:config:set gemini.key="你的密钥"
 ```
 
-### 测试LLM集成
-
-在部署前，建议先测试你的Gemini API密钥是否正常工作：
-
-#### 使用uv测试（最快 - 推荐）
-```bash
-# 安装uv（如果还没安装）
-curl -LsSf https://astral.sh/uv/install.sh | sh
-
-# 同步依赖（自动创建虚拟环境）
-cd backend/functions && uv sync
-
-# 设置API密钥
-export GEMINI_API_KEY="你的密钥"
-
-# 运行测试
-uv run python test-llm.py
-```
-
-#### 使用pip测试（替代方案）
-```bash
-# 安装Python SDK
-pip install -r backend/functions/requirements.txt
-# 或者手动：pip install google-generativeai
-
-# 设置API密钥
-export GEMINI_API_KEY="你的密钥"
-
-# 运行测试
-cd backend/functions && python test-llm.py
-```
-
-#### 使用Node.js测试
-```bash
-# 安装依赖
-cd backend/functions && npm install
-
-# 设置API密钥
-export GEMINI_API_KEY="你的密钥"
-
-# 运行测试
-npm run test-llm
-```
-
-环境变量方式更适合CI/CD和自动化部署。
 
 ## 📊 AI 匹配流程
 
@@ -354,33 +200,3 @@ npm run serve
 - ✅ 实时服务切换
 - ✅ 响应式设计
 - ✅ Firebase集成
-
----
-
-# flutter_app
-
-A new Flutter project.
-
-## Getting Started
-
-1. 下载flutter sdk [https://docs.flutter.cn/get-started/]
-2. 准备firebase [https://firebase.google.com/docs/flutter/setup?hl=zh-cn&platform=ios]
-    - 安装firebase-cli [https://firebase.google.com/docs/cli?hl=zh-cn#install-cli-mac-linu]
-    ```bash 
-    firebase login
-    dart pub global activate flutterfire_cli
-    flutterfire configure
-    ```
-
-进入根目录
-```bash
-flutter pub get
-flutter run
-```
-3. 后端服务
-```bash 
-cd backend/functions && npm install
-firebase use studio-291983403-af613
-```
-
-

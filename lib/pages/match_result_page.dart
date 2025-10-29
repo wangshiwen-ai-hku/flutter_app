@@ -11,7 +11,12 @@ import 'package:flutter_app/services/api_service.dart';
 import 'package:flutter_app/services/service_locator.dart';
 
 class MatchResultPage extends StatefulWidget {
-  const MatchResultPage({super.key});
+  const MatchResultPage({
+    super.key,
+    this.useCachedResults = false,
+  });
+
+  final bool useCachedResults;
 
   @override
   State<MatchResultPage> createState() => _MatchResultPageState();
@@ -24,7 +29,12 @@ class _MatchResultPageState extends State<MatchResultPage> {
   @override
   void initState() {
     super.initState();
-    _matchesFuture = locator<ApiService>().getMatches('current_user_id');
+    final apiService = locator<ApiService>();
+    if (widget.useCachedResults) {
+      _matchesFuture = apiService.getCachedMatches('current_user_id');
+    } else {
+      _matchesFuture = apiService.getMatches('current_user_id');
+    }
   }
 
   void _handleSelect(MatchAnalysis analysis) {
@@ -159,6 +169,7 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
   late final AnimationController _controller;
   late final MetaballSimulation _simulation;
   late final List<Metaball> _metaballs;
+  late final Map<String, double> _opacityMap;
   Size _clusterSize = const Size(300, 300);
   Metaball? _draggedBall;
 
@@ -173,10 +184,32 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
         }
       });
 
+    // 计算归一化透明度映射
+    _opacityMap = {};
+    final scores = widget.matches.map((analysis) => analysis.totalScore).toList();
+    if (scores.isEmpty) {
+      return;
+    }
+
+    final minScore = scores.reduce((a, b) => a < b ? a : b);
+    final maxScore = scores.reduce((a, b) => a > b ? a : b);
+    final scoreRange = maxScore - minScore;
+
+    for (final analysis in widget.matches) {
+      if (scoreRange == 0) {
+        // 所有分数相同时，使用固定透明度
+        _opacityMap[analysis.id] = 0.65;
+      } else {
+        // 归一化到0.3-1.0范围
+        final normalizedScore = (analysis.totalScore - minScore) / scoreRange;
+        _opacityMap[analysis.id] = 0.3 + (normalizedScore * 0.7);
+      }
+    }
+
     _metaballs = widget.matches.map((analysis) {
       const minRadius = 30.0;
       const maxRadius = 60.0;
-      final radius = minRadius + (maxRadius - minRadius) * analysis.aiScore;
+      final radius = minRadius + (maxRadius - minRadius) * (analysis.totalScore - minScore) / scoreRange;
       return Metaball(analysis, radius: radius);
     }).toList();
 
@@ -280,6 +313,7 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
             size: Size.infinite,
             painter: _BubblePainter(
               metaballs: _metaballs,
+              opacityMap: _opacityMap,
               selectedAnalysisId: widget.selectedAnalysisId,
               textTheme: Theme.of(context).textTheme,
             ),
@@ -292,11 +326,13 @@ class _BubbleClusterState extends State<BubbleCluster> with SingleTickerProvider
 
 class _BubblePainter extends CustomPainter {
   final List<Metaball> metaballs;
+  final Map<String, double> opacityMap;
   final String? selectedAnalysisId;
   final TextTheme textTheme;
 
   _BubblePainter({
     required this.metaballs,
+    required this.opacityMap,
     this.selectedAnalysisId,
     required this.textTheme,
   });
@@ -314,8 +350,11 @@ class _BubblePainter extends CustomPainter {
       // Assign a color based on the user ID to keep it consistent
       final color = colors[ball.analysis.userB.uid.hashCode % colors.length];
 
+      // 使用预计算的归一化透明度
+      final opacity = isSelected ? 1.0 : (opacityMap[ball.analysis.id] ?? 0.65);
+
       final paint = Paint()
-        ..color = isSelected ? color : color.withOpacity(0.8)
+        ..color = color.withOpacity(opacity)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8.0);
       canvas.drawCircle(center, scaledRadius, paint);
 
@@ -349,5 +388,9 @@ class _BubblePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _BubblePainter oldDelegate) => true;
+  bool shouldRepaint(covariant _BubblePainter oldDelegate) =>
+      metaballs != oldDelegate.metaballs ||
+      opacityMap != oldDelegate.opacityMap ||
+      selectedAnalysisId != oldDelegate.selectedAnalysisId ||
+      textTheme != oldDelegate.textTheme;
 }

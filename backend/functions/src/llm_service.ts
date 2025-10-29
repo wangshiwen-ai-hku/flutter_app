@@ -60,10 +60,15 @@ export async function callAgent(
     // Basic validation
     if (
       !parsedResponse.summary ||
-      !parsedResponse.aiScore ||
-      !parsedResponse.conversationStarters
+      parsedResponse.totalScore === undefined ||
+      !parsedResponse.similarFeatures ||
+      // Check if similarFeatures is an object and has at least one key
+      Object.keys(parsedResponse.similarFeatures).length === 0 ||
+      // Check the structure of the first feature
+      parsedResponse.similarFeatures[Object.keys(parsedResponse.similarFeatures)[0]].score === undefined ||
+      !parsedResponse.similarFeatures[Object.keys(parsedResponse.similarFeatures)[0]].explanation
     ) {
-      throw new Error("LLM response is missing required fields.");
+      throw new Error("LLM response is missing or has invalid structure for required fields.");
     }
 
     return parsedResponse;
